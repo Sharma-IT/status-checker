@@ -3,6 +3,7 @@
 A lean, fast, and dependency-free TypeScript library for performing basic status checks on URLs.
 
 ## Features
+
 - Zero external dependencies - uses only Node.js built-in modules
 - Configurable via JSON configuration file
 - Supports both synchronous and asynchronous operation modes
@@ -56,31 +57,33 @@ status-checker --version
 
 ## Configuration
 
-The application uses a JSON configuration file. See [example-config.json](example-config.json) for a complete example.
+This tool uses a JSON configuration file. See [example-config.json](example-config.json) for a complete example.
 
 ### Configuration Options
 
 ```json
 {
-  "urls": [              // Array of URL objects to check
+  "urls": [
     {
-      "url": string,    // URL to check
-      "name": string,   // Display name for the URL
-      "timeout": number,      // Optional: timeout in ms (overrides global)
-      "successCodes": number[],  // Optional: valid status codes (overrides global)
-      "headers": {      // Optional: custom request headers
-        "header": "value"
+      "url": "https://example.com",
+      "name": "Example Website",
+      "timeout": 10000,
+      "successCodes": [200, 301, 302],
+      "headers": {
+        "User-Agent": "StatusChecker/1.0"
       }
+    },
+    {
+      "url": "https://github.com",
+      "name": "GitHub"
     }
   ],
-  "globalTimeout": number,    // Default timeout in milliseconds
-  "globalSuccessCodes": number[],  // Default acceptable status codes
-  "logFile": string,         // Path to log file
-  "logLevel": string         // Logging level (debug, info, warn, error)
+  "globalTimeout": 5000,
+  "globalSuccessCodes": [200],
+  "logFile": "status-checker.log",
+  "logLevel": "info"
 }
 ```
-
-For a complete working example, check the [example-config.json](example-config.json) file.
 
 ### Programmatic Usage
 
