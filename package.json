@@ -8,11 +8,28 @@
     "status-checker": "dist/cli.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
+    "dev": "npx tsc --watch",
     "start": "node dist/cli.js",
     "test": "node dist/test.js",
-    "prepublish": "npm run build"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test",
+    "version": "git add -A src",
+    "postversion": "git push && git push --tags"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sharma-IT/status-checker.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Sharma-IT/status-checker/issues"
+  },
+  "homepage": "https://github.com/Sharma-IT/status-checker#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "url",
     "status",

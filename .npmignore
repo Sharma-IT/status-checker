@@ -1,0 +1,9 @@
+.git
+.github
+.gitignore
+.npmrc
+node_modules
+src/*.test.ts
+*.log
+tsconfig.json
+.DS_Store
