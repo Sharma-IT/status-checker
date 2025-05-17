@@ -1,0 +1,29 @@
+{
+  "name": "status-checker",
+  "version": "1.0.0",
+  "description": "A lean, dependency-free URL status checker library",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "status-checker": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "node dist/test.js",
+    "prepublish": "npm run build"
+  },
+  "keywords": [
+    "url",
+    "status",
+    "checker",
+    "http",
+    "monitoring"
+  ],
+  "author": "Shubham Sharma <shubhamsharma.emails@gmail.com> (https://github.com/Sharma-IT)",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.15.18",
+    "typescript": "^5.8.3"
+  }
+}
