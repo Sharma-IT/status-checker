@@ -1,8 +1,9 @@
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
-import { Config, UrlConfig, CheckResult, CheckerOptions } from './types';
+import { Config, UrlConfig, CheckResult, CheckerOptions, Check, StatusCodeCheck } from './types';
 import { Logger } from './logger';
+import { CheckEvaluator } from './evaluator';
 
 /**
  * URL Status Checker
@@ -25,7 +26,7 @@ export class StatusChecker {
       logger: options?.logger
     };
     this.logger = new Logger(config);
-    
+
     if (this.options.logger) {
       this.logger.log = this.options.logger;
     }
@@ -37,7 +38,7 @@ export class StatusChecker {
    */
   async checkAll(): Promise<CheckResult[]> {
     this.logger.info(`Starting to check ${this.config.urls.length} URLs`);
-    
+
     if (this.options.async) {
       return this.checkAllAsync();
     } else {
@@ -51,7 +52,7 @@ export class StatusChecker {
    */
   private async checkAllAsync(): Promise<CheckResult[]> {
     this.logger.debug('Running checks in async mode');
-    
+
     const promises = this.config.urls.map(urlConfig => this.checkUrl(urlConfig));
     return Promise.all(promises);
   }
@@ -62,14 +63,14 @@ export class StatusChecker {
    */
   private async checkAllSync(): Promise<CheckResult[]> {
     this.logger.debug('Running checks in sync mode');
-    
+
     const results: CheckResult[] = [];
-    
+
     for (const urlConfig of this.config.urls) {
       const result = await this.checkUrl(urlConfig);
       results.push(result);
     }
-    
+
     return results;
   }
 
@@ -83,34 +84,75 @@ export class StatusChecker {
     const url = urlConfig.url;
     const name = urlConfig.name;
     const timeout = urlConfig.timeout || this.config.globalTimeout || 5000;
-    const successCodes = urlConfig.successCodes || this.config.globalSuccessCodes || [200];
-    
-    this.logger.debug(`Checking URL: ${url} (${name})`);
-    
+
+    this.logger.debug(`Checking URL: ${url} (${name || ''})`);
+
     try {
-      const result = await this.makeRequest(url, timeout, urlConfig.headers);
+      // Make the request
+      const response = await this.makeRequest(urlConfig, timeout);
       const responseTime = Date.now() - startTime;
-      const success = successCodes.includes(result.statusCode);
-      
+
+      // Create the base result
       const checkResult: CheckResult = {
         url,
         name,
-        success,
-        statusCode: result.statusCode,
+        statusCode: response.statusCode,
+        headers: response.headers,
+        // Only include body if it's not too large
+        body: response.body.length > 1024 ? `${response.body.substring(0, 1024)}...` : response.body,
         responseTime,
-        timestamp: new Date()
+        timestamp: new Date(),
+        success: true, // Will be updated based on checks
+        checkResults: []
       };
-      
-      if (!success) {
-        checkResult.error = `Unexpected status code: ${result.statusCode}`;
+
+      // Determine which checks to run
+      let checks: Check[] = [];
+
+      // If checks are provided, use them
+      if (urlConfig.checks && urlConfig.checks.length > 0) {
+        checks = urlConfig.checks;
       }
-      
+      // Otherwise, create a default status code check from successCodes
+      else {
+        const successCodes = urlConfig.successCodes || this.config.globalSuccessCodes || [200];
+        const statusCodeCheck: StatusCodeCheck = {
+          type: 'status_code',
+          operator: 'equals',
+          value: successCodes.join('|')
+        };
+        checks = [statusCodeCheck];
+      }
+
+      // Run the checks
+      const evaluator = new CheckEvaluator();
+      const checkResults = evaluator.evaluateChecks(checks, {
+        statusCode: response.statusCode,
+        headers: response.headers,
+        body: response.body,
+        responseTime
+      });
+
+      // Update the result with check results
+      checkResult.checkResults = checkResults;
+
+      // Overall success is true only if all checks passed
+      checkResult.success = checkResults.every(result => result.passed);
+
+      // If any checks failed, add an error message
+      if (!checkResult.success) {
+        const failedChecks = checkResults.filter(result => !result.passed);
+        checkResult.error = failedChecks.map(check =>
+          `${check.description} - Expected: ${check.expectedValue}, Actual: ${check.actualValue}`
+        ).join('; ');
+      }
+
       this.logResult(checkResult);
       return checkResult;
     } catch (error) {
       const responseTime = Date.now() - startTime;
       const errorMessage = error instanceof Error ? error.message : String(error);
-      
+
       const checkResult: CheckResult = {
         url,
         name,
@@ -119,7 +161,7 @@ export class StatusChecker {
         responseTime,
         timestamp: new Date()
       };
-      
+
       this.logResult(checkResult);
       return checkResult;
     }
@@ -127,42 +169,78 @@ export class StatusChecker {
 
   /**
    * Make an HTTP/HTTPS request
-   * @param url URL to request
+   * @param urlConfig URL configuration
    * @param timeout Timeout in milliseconds
-   * @param headers Headers to send
    * @returns Promise resolving to the response
    */
-  private makeRequest(url: string, timeout: number, headers?: Record<string, string>): Promise<{ statusCode: number }> {
+  private makeRequest(urlConfig: UrlConfig, timeout: number): Promise<{
+    statusCode: number;
+    headers: Record<string, string>;
+    body: string;
+  }> {
     return new Promise((resolve, reject) => {
+      const url = urlConfig.url;
       const parsedUrl = new URL(url);
       const isHttps = parsedUrl.protocol === 'https:';
+      const method = urlConfig.method || 'GET';
+      const headers = urlConfig.headers || {};
+
+      // Add content-type header if body is provided
+      if (urlConfig.body && urlConfig.contentType && !headers['content-type']) {
+        headers['content-type'] = urlConfig.contentType;
+      }
+
       const options: http.RequestOptions = {
         hostname: parsedUrl.hostname,
         port: parsedUrl.port || (isHttps ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
-        method: 'GET',
+        method,
         timeout,
-        headers: headers || {}
+        headers
       };
-      
+
       const requestModule = isHttps ? https : http;
-      
+
       const req = requestModule.request(options, (res) => {
-        resolve({ statusCode: res.statusCode || 0 });
-        
-        // Consume response data to free up memory
-        res.resume();
+        let responseBody = '';
+        const responseHeaders: Record<string, string> = {};
+
+        // Convert headers to a simple object
+        for (const [key, value] of Object.entries(res.headers)) {
+          if (value !== undefined) {
+            responseHeaders[key] = Array.isArray(value) ? value.join(', ') : value;
+          }
+        }
+
+        res.setEncoding('utf8');
+
+        res.on('data', (chunk) => {
+          responseBody += chunk;
+        });
+
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode || 0,
+            headers: responseHeaders,
+            body: responseBody
+          });
+        });
       });
-      
+
       req.on('error', (error) => {
         reject(error);
       });
-      
+
       req.on('timeout', () => {
         req.destroy();
         reject(new Error(`Request timed out after ${timeout}ms`));
       });
-      
+
+      // Send body if provided and method is not GET or HEAD
+      if (urlConfig.body && !['GET', 'HEAD'].includes(method)) {
+        req.write(urlConfig.body);
+      }
+
       req.end();
     });
   }
@@ -173,13 +251,44 @@ export class StatusChecker {
    */
   private logResult(result: CheckResult): void {
     if (!this.options.log) return;
-    
+
     const name = result.name ? `${result.name} (${result.url})` : result.url;
-    
+
     if (result.success) {
       this.logger.info(`✅ ${name} - Status: ${result.statusCode} - Response time: ${result.responseTime}ms`);
+
+      // Log individual check results in debug mode
+      if (result.checkResults && result.checkResults.length > 0) {
+        this.logger.debug(`Check details for ${name}:`);
+        result.checkResults.forEach(check => {
+          this.logger.debug(`  ✅ ${check.description}`);
+        });
+      }
     } else {
-      this.logger.error(`❌ ${name} - Error: ${result.error} - Response time: ${result.responseTime}ms`);
+      this.logger.error(`❌ ${name} - Status: ${result.statusCode} - Response time: ${result.responseTime}ms`);
+
+      if (result.error) {
+        this.logger.error(`  Error: ${result.error}`);
+      }
+
+      // Log individual check results
+      if (result.checkResults && result.checkResults.length > 0) {
+        this.logger.debug(`Check details for ${name}:`);
+        result.checkResults.forEach(check => {
+          const symbol = check.passed ? '✅' : '❌';
+          const message = `  ${symbol} ${check.description}`;
+
+          if (check.passed) {
+            this.logger.debug(message);
+          } else {
+            this.logger.error(message);
+            if (check.error) {
+              this.logger.error(`    Error: ${check.error}`);
+            }
+            this.logger.error(`    Expected: ${check.expectedValue}, Actual: ${check.actualValue}`);
+          }
+        });
+      }
     }
   }
 }

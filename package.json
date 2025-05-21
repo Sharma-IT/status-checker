@@ -1,35 +1,24 @@
 {
   "name": "status-checker",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "A lean, dependency-free URL status checker library",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "status-checker": "dist/cli.js"
   },
+  "files": [
+    "dist/**/*"
+  ],
   "scripts": {
-    "build": "npx tsc",
-    "dev": "npx tsc --watch",
+    "build": "tsc",
     "start": "node dist/cli.js",
     "test": "node dist/test.js",
-    "prepare": "npm run build",
-    "prepublishOnly": "npm test",
-    "version": "git add -A src",
-    "postversion": "git push && git push --tags"
+    "test:advanced": "node dist/test.js --advanced",
+    "test:evaluator": "node dist/test.js --evaluator",
+    "test:all": "node dist/test.js --advanced --evaluator",
+    "prepublish": "npm run build"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Sharma-IT/status-checker.git"
-  },
-  "bugs": {
-    "url": "https://github.com/Sharma-IT/status-checker/issues"
-  },
-  "homepage": "https://github.com/Sharma-IT/status-checker#readme",
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
   "keywords": [
     "url",
     "status",

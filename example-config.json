@@ -2,37 +2,177 @@
   "urls": [
     {
       "url": "https://example.com",
-      "name": "Example Website",
+      "name": "Example Website - Basic Check",
       "timeout": 10000,
       "successCodes": [200, 301, 302]
     },
     {
-      "url": "https://github.com",
-      "name": "GitHub",
-      "headers": {
-        "User-Agent": "StatusChecker/1.0"
-      }
+      "url": "https://example.com",
+      "name": "Example Website - Advanced Checks",
+      "timeout": 10000,
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "value": "200|301|302"
+        },
+        {
+          "type": "header",
+          "name": "content-type",
+          "operator": "contains",
+          "value": "text/html"
+        },
+        {
+          "type": "body",
+          "operator": "contains",
+          "value": "Example Domain"
+        },
+        {
+          "type": "response_time",
+          "operator": "less_than",
+          "value": 2000
+        }
+      ]
     },
     {
       "url": "https://api.github.com/users/Sharma-IT",
-      "name": "GitHub API",
+      "name": "GitHub API - JSON Path Checks",
       "headers": {
         "User-Agent": "StatusChecker/1.0",
         "Accept": "application/vnd.github.v3+json"
       },
-      "successCodes": [200, 403]
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "value": "200"
+        },
+        {
+          "type": "header",
+          "name": "content-type",
+          "operator": "contains",
+          "value": "application/json"
+        },
+        {
+          "type": "jsonpath",
+          "path": "login",
+          "operator": "equals",
+          "value": "Sharma-IT"
+        },
+        {
+          "type": "jsonpath",
+          "path": "name",
+          "operator": "exists"
+        }
+      ]
     },
     {
-      "url": "https://httpstat.us/200",
-      "name": "HTTP 200 Test"
+      "url": "https://httpstat.us/200?sleep=100",
+      "name": "HTTP Status with Regex",
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "matches",
+          "value": "2[0-9]{2}"
+        },
+        {
+          "type": "response_time",
+          "operator": "greater_than",
+          "value": 100
+        }
+      ]
     },
     {
       "url": "https://httpstat.us/404",
-      "name": "HTTP 404 Test"
+      "name": "HTTP 404 Test - Expected Failure",
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "value": "404"
+        }
+      ]
     },
     {
-      "url": "https://httpstat.us/500",
-      "name": "HTTP 500 Test"
+      "url": "https://httpbin.org/json",
+      "name": "JSON Response Test",
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "value": "200"
+        },
+        {
+          "type": "header",
+          "name": "content-type",
+          "operator": "equals",
+          "value": "application/json"
+        },
+        {
+          "type": "jsonpath",
+          "path": "slideshow.title",
+          "operator": "equals",
+          "value": "Sample Slide Show"
+        },
+        {
+          "type": "jsonpath",
+          "path": "slideshow.slides",
+          "operator": "exists"
+        },
+        {
+          "type": "jsonpath",
+          "path": "slideshow.slides[0].title",
+          "operator": "exists"
+        }
+      ]
+    },
+    {
+      "url": "https://httpbin.org/headers",
+      "method": "GET",
+      "name": "Custom Headers Test",
+      "headers": {
+        "X-Custom-Header": "test-value",
+        "User-Agent": "StatusChecker/1.0"
+      },
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "value": "200"
+        },
+        {
+          "type": "jsonpath",
+          "path": "headers.X-Custom-Header",
+          "operator": "equals",
+          "value": "test-value"
+        }
+      ]
+    },
+    {
+      "url": "https://httpbin.org/post",
+      "method": "POST",
+      "name": "POST Request Test",
+      "contentType": "application/json",
+      "body": "{\"name\": \"John Doe\", \"location\": \"Sydney, NSW, Australia\"}",
+      "checks": [
+        {
+          "type": "status_code",
+          "operator": "equals",
+          "value": "200"
+        },
+        {
+          "type": "jsonpath",
+          "path": "json.name",
+          "operator": "equals",
+          "value": "John Doe"
+        },
+        {
+          "type": "jsonpath",
+          "path": "json.location",
+          "operator": "contains",
+          "value": "Sydney, NSW, Australia"
+        }
+      ]
     }
   ],
   "globalTimeout": 5000,
