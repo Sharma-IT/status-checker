@@ -1,6 +1,6 @@
 # Status Checker
 
-A lean, fast, and dependency-free TypeScript library for performing basic status checks on URLs. Check this [tutorial](https://code2tutorial.com/tutorial/d2c4b061-f52e-4b9e-9f4a-d5309865ee55/index.md) out, if you want to learn more about this tool.
+A lean, fast, and dependency-free TypeScript library for performing basic status checks on URLs.
 
 ## Features
 
