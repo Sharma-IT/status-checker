@@ -23,6 +23,9 @@ npm install -g status-checker
 
 # Or install locally
 npm install status-checker
+
+# Install development dependencies for testing
+npm install --save-dev @types/node @types/jest jest ts-jest
 ```
 
 ## Usage
@@ -64,13 +67,12 @@ The configuration file is a JSON file with the following structure:
   "urls": [
     {
       "url": "https://example.com",
-      "name": "Example Website",
+      "name": "Example Website", 
       "timeout": 10000,
       "method": "GET",
       "headers": {
         "User-Agent": "StatusChecker/1.0"
       },
-      "successCodes": [200, 301, 302],
       "checks": [
         {
           "type": "status_code",
@@ -80,8 +82,18 @@ The configuration file is a JSON file with the following structure:
         {
           "type": "header",
           "name": "content-type",
-          "operator": "contains",
+          "operator": "contains", 
           "value": "text/html"
+        },
+        {
+          "type": "response_time",
+          "operator": "less_than",
+          "value": 1000
+        },
+        {
+          "type": "jsonpath",
+          "path": "user.name",
+          "operator": "exists"
         }
       ]
     }
@@ -102,7 +114,6 @@ The configuration file is a JSON file with the following structure:
 - `headers` - Headers to send with the request
 - `body` - Request body for POST/PUT/PATCH requests
 - `contentType` - Content type for the request body
-- `successCodes` - Custom success status codes (deprecated, use checks instead)
 - `checks` - Array of checks to perform on the response
 
 #### Check Types
